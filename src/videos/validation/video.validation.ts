@@ -87,7 +87,8 @@ export const validateUpdateVideoInput = (
     ) {
       errors.push({
         field: 'minAgeRestriction',
-        message: 'minAgeRestriction must be an integer between 1 and 18 or null',
+        message:
+          'minAgeRestriction must be an integer between 1 and 18 or null',
       });
     }
   }
