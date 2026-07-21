@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../db/in-memory.db';
 import { HttpStatus } from '../../core/types/http-statuses';
 import {
   CreateVideoInputDto,
@@ -11,52 +10,60 @@ import {
   validateCreateVideoInput,
   validateUpdateVideoInput,
 } from '../validation/video.validation';
+import { videosRepository } from '../repositories/videos.repository';
+import { mapVideoToViewModel } from './mappers/map-video-to-view-model';
 
 export const videoRouter = Router({});
 
 videoRouter
-  .get('', (req: Request, res: Response) => {
-    res.status(HttpStatus.Ok).send(db.videos);
+  .get('', async (req: Request, res: Response) => {
+    const videos = await videosRepository.findAll();
+    res.status(HttpStatus.Ok).send(videos.map(mapVideoToViewModel));
   })
-  .get('/:id', (req: Request<{ id: string }>, res: Response) => {
-    const video = db.videos.find((v) => v.id === +req.params.id);
+  .get('/:id', async (req: Request<{ id: string }>, res: Response) => {
+    const video = await videosRepository.findById(req.params.id);
 
     if (!video) {
       res.sendStatus(HttpStatus.NotFound);
       return;
     }
-    res.status(HttpStatus.Ok).send(video);
+    res.status(HttpStatus.Ok).send(mapVideoToViewModel(video));
   })
-  .post('', (req: Request<{}, {}, CreateVideoInputDto>, res: Response) => {
-    const errors = validateCreateVideoInput(req.body);
+  .post(
+    '',
+    async (req: Request<{}, {}, CreateVideoInputDto>, res: Response) => {
+      const errors = validateCreateVideoInput(req.body);
 
-    if (errors.length > 0) {
-      res.status(HttpStatus.BadRequest).send(createErrorMessages(errors));
-      return;
-    }
+      if (errors.length > 0) {
+        res.status(HttpStatus.BadRequest).send(createErrorMessages(errors));
+        return;
+      }
 
-    const createdAt = new Date();
-    const publicationDate = new Date(createdAt);
-    publicationDate.setDate(publicationDate.getDate() + 1);
+      const createdAt = new Date();
+      const publicationDate = new Date(createdAt);
+      publicationDate.setDate(publicationDate.getDate() + 1);
 
-    const newVideo: Video = {
-      id: db.videos.length ? db.videos[db.videos.length - 1].id + 1 : 1,
-      title: req.body.title,
-      author: req.body.author,
-      canBeDownloaded: false,
-      minAgeRestriction: null,
-      createdAt: createdAt.toISOString(),
-      publicationDate: publicationDate.toISOString(),
-      availableResolutions: req.body.availableResolutions,
-    };
+      const newVideo: Video = {
+        title: req.body.title,
+        author: req.body.author,
+        canBeDownloaded: false,
+        minAgeRestriction: null,
+        createdAt: createdAt.toISOString(),
+        publicationDate: publicationDate.toISOString(),
+        availableResolutions: req.body.availableResolutions,
+      };
 
-    db.videos.push(newVideo);
-    res.status(HttpStatus.Created).send(newVideo);
-  })
+      const createdVideo = await videosRepository.create(newVideo);
+      res.status(HttpStatus.Created).send(mapVideoToViewModel(createdVideo));
+    },
+  )
   .put(
     '/:id',
-    (req: Request<{ id: string }, {}, UpdateVideoInputDto>, res: Response) => {
-      const video = db.videos.find((v) => v.id === +req.params.id);
+    async (
+      req: Request<{ id: string }, {}, UpdateVideoInputDto>,
+      res: Response,
+    ) => {
+      const video = await videosRepository.findById(req.params.id);
 
       if (!video) {
         res.sendStatus(HttpStatus.NotFound);
@@ -70,24 +77,25 @@ videoRouter
         return;
       }
 
-      video.title = req.body.title;
-      video.author = req.body.author;
-      video.availableResolutions = req.body.availableResolutions;
-      video.canBeDownloaded = req.body.canBeDownloaded;
-      video.minAgeRestriction = req.body.minAgeRestriction ?? null;
-      video.publicationDate = req.body.publicationDate;
+      await videosRepository.update(req.params.id, {
+        title: req.body.title,
+        author: req.body.author,
+        availableResolutions: req.body.availableResolutions,
+        canBeDownloaded: req.body.canBeDownloaded,
+        minAgeRestriction: req.body.minAgeRestriction ?? null,
+        publicationDate: req.body.publicationDate,
+      });
 
       res.sendStatus(HttpStatus.NoContent);
     },
   )
-  .delete('/:id', (req: Request<{ id: string }>, res: Response) => {
-    const index = db.videos.findIndex((v) => v.id === +req.params.id);
+  .delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
+    const isDeleted = await videosRepository.delete(req.params.id);
 
-    if (index === -1) {
+    if (!isDeleted) {
       res.sendStatus(HttpStatus.NotFound);
       return;
     }
 
-    db.videos.splice(index, 1);
     res.sendStatus(HttpStatus.NoContent);
   });

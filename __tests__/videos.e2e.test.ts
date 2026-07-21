@@ -4,6 +4,7 @@ import { setupApp } from '../src/setup-app';
 import { HttpStatus } from '../src/core/types/http-statuses';
 import { Resolutions } from '../src/videos/types/video';
 import { CreateVideoInputDto } from '../src/videos/dto/video.input-dto';
+import { stopDb } from '../src/db/mongo.db';
 
 const app = setupApp(express());
 
@@ -22,6 +23,10 @@ const createVideo = (input: CreateVideoInputDto = validCreateInput) =>
 describe('Videos API', () => {
   beforeEach(async () => {
     await request(app).delete(TESTING).expect(HttpStatus.NoContent);
+  });
+
+  afterAll(async () => {
+    await stopDb();
   });
 
   describe('GET /videos', () => {
@@ -44,7 +49,7 @@ describe('Videos API', () => {
       const res = await createVideo();
 
       expect(res.body).toEqual({
-        id: expect.any(Number),
+        id: expect.any(String),
         title: validCreateInput.title,
         author: validCreateInput.author,
         canBeDownloaded: false,

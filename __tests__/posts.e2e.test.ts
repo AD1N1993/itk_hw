@@ -4,6 +4,7 @@ import { setupApp } from '../src/setup-app';
 import { HttpStatus } from '../src/core/types/http-statuses';
 import { BlogInputDto } from '../src/blogs/dto/blog.input-dto';
 import { PostInputDto } from '../src/posts/dto/post.input-dto';
+import { stopDb } from '../src/db/mongo.db';
 
 const app = setupApp(express());
 
@@ -38,6 +39,10 @@ const createPost = (input: PostInputDto) =>
 describe('Posts API', () => {
   beforeEach(async () => {
     await request(app).delete(TESTING).expect(HttpStatus.NoContent);
+  });
+
+  afterAll(async () => {
+    await stopDb();
   });
 
   describe('GET /posts', () => {
@@ -80,6 +85,7 @@ describe('Posts API', () => {
         content: input.content,
         blogId: blog.body.id,
         blogName: blog.body.name,
+        createdAt: expect.any(String),
       });
     });
 

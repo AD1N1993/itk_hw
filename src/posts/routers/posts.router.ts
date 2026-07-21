@@ -1,79 +1,83 @@
 import { Router, Request, Response } from 'express';
-import { randomUUID } from 'crypto';
-import { db } from '../../db/in-memory.db';
 import { HttpStatus } from '../../core/types/http-statuses';
 import { createErrorMessages } from '../../core/utils/validation-error';
 import { basicAuthMiddleware } from '../../core/middlewares/basic-auth.middleware';
 import { PostInputDto } from '../dto/post.input-dto';
 import { Post } from '../types/post';
 import { validatePostInput } from '../validation/post.validation';
+import { postsRepository } from '../repositories/posts.repository';
+import { blogsRepository } from '../../blogs/repositories/blogs.repository';
+import { mapPostToViewModel } from './mappers/map-post-to-view-model';
 
 export const postsRouter = Router({});
 
 postsRouter
-  .get('', (req: Request, res: Response) => {
-    res.status(HttpStatus.Ok).send(db.posts);
+  .get('', async (req: Request, res: Response) => {
+    const posts = await postsRepository.findAll();
+    res.status(HttpStatus.Ok).send(posts.map(mapPostToViewModel));
   })
-  .get('/:id', (req: Request<{ id: string }>, res: Response) => {
-    const post = db.posts.find((p) => p.id === req.params.id);
+  .get('/:id', async (req: Request<{ id: string }>, res: Response) => {
+    const post = await postsRepository.findById(req.params.id);
 
     if (!post) {
       res.sendStatus(HttpStatus.NotFound);
       return;
     }
-    res.status(HttpStatus.Ok).send(post);
+    res.status(HttpStatus.Ok).send(mapPostToViewModel(post));
   })
   .post(
     '',
     basicAuthMiddleware,
-    (req: Request<{}, {}, PostInputDto>, res: Response) => {
-      const errors = validatePostInput(req.body, db.blogs);
+    async (req: Request<{}, {}, PostInputDto>, res: Response) => {
+      const errors = await validatePostInput(req.body);
 
       if (errors.length > 0) {
         res.status(HttpStatus.BadRequest).send(createErrorMessages(errors));
         return;
       }
 
-      const blog = db.blogs.find((b) => b.id === req.body.blogId)!;
+      const blog = await blogsRepository.findById(req.body.blogId);
 
       const newPost: Post = {
-        id: randomUUID(),
         title: req.body.title,
         shortDescription: req.body.shortDescription,
         content: req.body.content,
-        blogId: blog.id,
-        blogName: blog.name,
+        blogId: blog!._id.toString(),
+        blogName: blog!.name,
+        createdAt: new Date().toISOString(),
       };
 
-      db.posts.push(newPost);
-      res.status(HttpStatus.Created).send(newPost);
+      const createdPost = await postsRepository.create(newPost);
+      res.status(HttpStatus.Created).send(mapPostToViewModel(createdPost));
     },
   )
   .put(
     '/:id',
     basicAuthMiddleware,
-    (req: Request<{ id: string }, {}, PostInputDto>, res: Response) => {
-      const post = db.posts.find((p) => p.id === req.params.id);
+    async (req: Request<{ id: string }, {}, PostInputDto>, res: Response) => {
+      const post = await postsRepository.findById(req.params.id);
 
       if (!post) {
         res.sendStatus(HttpStatus.NotFound);
         return;
       }
 
-      const errors = validatePostInput(req.body, db.blogs);
+      const errors = await validatePostInput(req.body);
 
       if (errors.length > 0) {
         res.status(HttpStatus.BadRequest).send(createErrorMessages(errors));
         return;
       }
 
-      const blog = db.blogs.find((b) => b.id === req.body.blogId)!;
+      const blog = await blogsRepository.findById(req.body.blogId);
 
-      post.title = req.body.title;
-      post.shortDescription = req.body.shortDescription;
-      post.content = req.body.content;
-      post.blogId = blog.id;
-      post.blogName = blog.name;
+      await postsRepository.update(req.params.id, {
+        title: req.body.title,
+        shortDescription: req.body.shortDescription,
+        content: req.body.content,
+        blogId: blog!._id.toString(),
+        blogName: blog!.name,
+      });
 
       res.sendStatus(HttpStatus.NoContent);
     },
@@ -81,15 +85,14 @@ postsRouter
   .delete(
     '/:id',
     basicAuthMiddleware,
-    (req: Request<{ id: string }>, res: Response) => {
-      const index = db.posts.findIndex((p) => p.id === req.params.id);
+    async (req: Request<{ id: string }>, res: Response) => {
+      const isDeleted = await postsRepository.delete(req.params.id);
 
-      if (index === -1) {
+      if (!isDeleted) {
         res.sendStatus(HttpStatus.NotFound);
         return;
       }
 
-      db.posts.splice(index, 1);
       res.sendStatus(HttpStatus.NoContent);
     },
   );

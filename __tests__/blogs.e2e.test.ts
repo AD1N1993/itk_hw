@@ -3,6 +3,7 @@ import express from 'express';
 import { setupApp } from '../src/setup-app';
 import { HttpStatus } from '../src/core/types/http-statuses';
 import { BlogInputDto } from '../src/blogs/dto/blog.input-dto';
+import { stopDb } from '../src/db/mongo.db';
 
 const app = setupApp(express());
 
@@ -25,6 +26,10 @@ const createBlog = (input: BlogInputDto = validBlogInput) =>
 describe('Blogs API', () => {
   beforeEach(async () => {
     await request(app).delete(TESTING).expect(HttpStatus.NoContent);
+  });
+
+  afterAll(async () => {
+    await stopDb();
   });
 
   describe('GET /blogs', () => {
@@ -69,6 +74,8 @@ describe('Blogs API', () => {
         name: validBlogInput.name,
         description: validBlogInput.description,
         websiteUrl: validBlogInput.websiteUrl,
+        createdAt: expect.any(String),
+        isMembership: false,
       });
     });
 

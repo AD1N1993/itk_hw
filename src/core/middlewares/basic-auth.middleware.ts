@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { HttpStatus } from '../types/http-statuses';
+import { SETTINGS } from '../../settings/config';
 
-const LOGIN = 'admin';
-const PASSWORD = 'qwerty';
+const LOGIN = SETTINGS.ADMIN_USERNAME;
+const PASSWORD = SETTINGS.ADMIN_PASSWORD;
 
 export const basicAuthMiddleware = (
   req: Request,

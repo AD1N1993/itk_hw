@@ -1,6 +1,6 @@
 import { ValidationError } from '../../core/types/validation-error';
 import { PostInputDto } from '../dto/post.input-dto';
-import { Blog } from '../../blogs/types/blog';
+import { blogsRepository } from '../../blogs/repositories/blogs.repository';
 
 const validateTitle = (title: unknown, errors: ValidationError[]): void => {
   if (typeof title !== 'string' || title.trim().length === 0) {
@@ -44,16 +44,16 @@ const validateContent = (content: unknown, errors: ValidationError[]): void => {
   }
 };
 
-const validateBlogId = (
+const validateBlogId = async (
   blogId: unknown,
-  blogs: Blog[],
   errors: ValidationError[],
-): void => {
+): Promise<void> => {
   if (typeof blogId !== 'string' || blogId.trim().length === 0) {
     errors.push({ field: 'blogId', message: 'blogId is required' });
     return;
   }
-  if (!blogs.some((b) => b.id === blogId)) {
+  const blog = await blogsRepository.findById(blogId);
+  if (!blog) {
     errors.push({
       field: 'blogId',
       message: 'blog with this id does not exist',
@@ -61,14 +61,13 @@ const validateBlogId = (
   }
 };
 
-export const validatePostInput = (
+export const validatePostInput = async (
   data: Partial<PostInputDto>,
-  blogs: Blog[],
-): ValidationError[] => {
+): Promise<ValidationError[]> => {
   const errors: ValidationError[] = [];
   validateTitle(data.title, errors);
   validateShortDescription(data.shortDescription, errors);
   validateContent(data.content, errors);
-  validateBlogId(data.blogId, blogs, errors);
+  await validateBlogId(data.blogId, errors);
   return errors;
 };

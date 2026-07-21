@@ -1,12 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../db/in-memory.db';
 import { HttpStatus } from '../../core/types/http-statuses';
+import { getAllCollections } from '../../db/collections';
 
 export const testingRouter = Router({});
 
-testingRouter.delete('/all-data', (req: Request, res: Response) => {
-  db.videos = [];
-  db.blogs = [];
-  db.posts = [];
+testingRouter.delete('/all-data', async (req: Request, res: Response) => {
+  await Promise.all(
+    getAllCollections().map((collection) => collection.deleteMany({})),
+  );
+
   res.sendStatus(HttpStatus.NoContent);
 });
