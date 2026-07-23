@@ -1,90 +1,81 @@
-import { Router, Request, Response } from 'express';
-import { HttpStatus } from '../../core/types/http-statuses';
-import { createErrorMessages } from '../../core/utils/validation-error';
+import { Router } from 'express';
+import { BLOGS_ROUTES } from '../constants/blogs.paths';
 import { basicAuthMiddleware } from '../../core/middlewares/basic-auth.middleware';
-import { BlogInputDto } from '../dto/blog.input-dto';
-import { Blog } from '../types/blog';
-import { validateBlogInput } from '../validation/blog.validation';
-import { blogsRepository } from '../repositories/blogs.repository';
-import { mapBlogToViewModel } from './mappers/map-blog-to-view-model';
+import {
+  idValidation,
+  blogIdParamValidation,
+} from '../../core/middlewares/validation/params-id.validation.middleware';
+import { inputValidationResultMiddleware } from '../../core/middlewares/validation/input-validation-result.middleware';
+import {
+  paginationAndSortingValidation,
+  searchNameTermValidation,
+} from '../../core/middlewares/validation/query-pagination-sorting.validation.middleware';
+import { blogInputValidation } from '../validation/blog.validation';
+import { blogPostFieldsValidation } from '../../posts/validation/post.validation';
+import { getBlogListHandler } from './handlers/get-blog-list.handler';
+import { getBlogHandler } from './handlers/get-blog.handler';
+import { createBlogHandler } from './handlers/create-blog.handler';
+import { updateBlogHandler } from './handlers/update-blog.handler';
+import { deleteBlogHandler } from './handlers/delete-blog.handler';
+import { getPostsOfBlogHandler } from './handlers/get-posts-of-blog.handler';
+import { createPostForBlogHandler } from './handlers/create-post-for-blog.handler';
 
 export const blogsRouter = Router({});
 
 blogsRouter
-  .get('', async (req: Request, res: Response) => {
-    const blogs = await blogsRepository.findAll();
-    res.status(HttpStatus.Ok).send(blogs.map(mapBlogToViewModel));
-  })
-  .get('/:id', async (req: Request<{ id: string }>, res: Response) => {
-    const blog = await blogsRepository.findById(req.params.id);
+  .get(
+    BLOGS_ROUTES.ROOT,
+    searchNameTermValidation,
+    paginationAndSortingValidation,
+    inputValidationResultMiddleware,
+    getBlogListHandler,
+  )
 
-    if (!blog) {
-      res.sendStatus(HttpStatus.NotFound);
-      return;
-    }
-    res.status(HttpStatus.Ok).send(mapBlogToViewModel(blog));
-  })
+  .get(
+    BLOGS_ROUTES.POSTS_OF_BLOG,
+    blogIdParamValidation,
+    paginationAndSortingValidation,
+    inputValidationResultMiddleware,
+    getPostsOfBlogHandler,
+  )
+
   .post(
-    '',
+    BLOGS_ROUTES.POSTS_OF_BLOG,
     basicAuthMiddleware,
-    async (req: Request<{}, {}, BlogInputDto>, res: Response) => {
-      const errors = validateBlogInput(req.body);
-
-      if (errors.length > 0) {
-        res.status(HttpStatus.BadRequest).send(createErrorMessages(errors));
-        return;
-      }
-
-      const newBlog: Blog = {
-        name: req.body.name,
-        description: req.body.description,
-        websiteUrl: req.body.websiteUrl,
-        createdAt: new Date().toISOString(),
-        isMembership: false,
-      };
-
-      const createdBlog = await blogsRepository.create(newBlog);
-      res.status(HttpStatus.Created).send(mapBlogToViewModel(createdBlog));
-    },
+    blogIdParamValidation,
+    blogPostFieldsValidation,
+    inputValidationResultMiddleware,
+    createPostForBlogHandler,
   )
+
+  .get(
+    BLOGS_ROUTES.BY_ID,
+    idValidation,
+    inputValidationResultMiddleware,
+    getBlogHandler,
+  )
+
+  .post(
+    BLOGS_ROUTES.ROOT,
+    basicAuthMiddleware,
+    blogInputValidation,
+    inputValidationResultMiddleware,
+    createBlogHandler,
+  )
+
   .put(
-    '/:id',
+    BLOGS_ROUTES.BY_ID,
     basicAuthMiddleware,
-    async (req: Request<{ id: string }, {}, BlogInputDto>, res: Response) => {
-      const blog = await blogsRepository.findById(req.params.id);
-
-      if (!blog) {
-        res.sendStatus(HttpStatus.NotFound);
-        return;
-      }
-
-      const errors = validateBlogInput(req.body);
-
-      if (errors.length > 0) {
-        res.status(HttpStatus.BadRequest).send(createErrorMessages(errors));
-        return;
-      }
-
-      await blogsRepository.update(req.params.id, {
-        name: req.body.name,
-        description: req.body.description,
-        websiteUrl: req.body.websiteUrl,
-      });
-
-      res.sendStatus(HttpStatus.NoContent);
-    },
+    idValidation,
+    blogInputValidation,
+    inputValidationResultMiddleware,
+    updateBlogHandler,
   )
+
   .delete(
-    '/:id',
+    BLOGS_ROUTES.BY_ID,
     basicAuthMiddleware,
-    async (req: Request<{ id: string }>, res: Response) => {
-      const isDeleted = await blogsRepository.delete(req.params.id);
-
-      if (!isDeleted) {
-        res.sendStatus(HttpStatus.NotFound);
-        return;
-      }
-
-      res.sendStatus(HttpStatus.NoContent);
-    },
+    idValidation,
+    inputValidationResultMiddleware,
+    deleteBlogHandler,
   );

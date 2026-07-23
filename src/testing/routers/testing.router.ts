@@ -1,13 +1,7 @@
-import { Router, Request, Response } from 'express';
-import { HttpStatus } from '../../core/types/http-statuses';
-import { getAllCollections } from '../../db/collections';
+import { Router } from 'express';
+import { TESTING_ROUTES } from '../constants/testing.paths';
+import { truncateDbHandler } from './handlers/truncate-db.handler';
 
 export const testingRouter = Router({});
 
-testingRouter.delete('/all-data', async (req: Request, res: Response) => {
-  await Promise.all(
-    getAllCollections().map((collection) => collection.deleteMany({})),
-  );
-
-  res.sendStatus(HttpStatus.NoContent);
-});
+testingRouter.delete(TESTING_ROUTES.ALL_DATA, truncateDbHandler);

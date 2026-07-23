@@ -8,9 +8,9 @@ import { stopDb } from '../src/db/mongo.db';
 
 const app = setupApp(express());
 
-const POSTS_BASE = '/ht_02/api/posts';
-const BLOGS_BASE = '/ht_02/api/blogs';
-const TESTING = '/ht_02/api/testing/all-data';
+const POSTS_BASE = '/hometask_04/api/posts';
+const BLOGS_BASE = '/hometask_04/api/blogs';
+const TESTING = '/hometask_04/api/testing/all-data';
 
 const AUTH = {
   Authorization: 'Basic ' + Buffer.from('admin:qwerty').toString('base64'),
@@ -46,9 +46,40 @@ describe('Posts API', () => {
   });
 
   describe('GET /posts', () => {
-    it('should return empty array initially', async () => {
+    it('should return empty paginator initially', async () => {
       const res = await request(app).get(POSTS_BASE).expect(HttpStatus.Ok);
-      expect(res.body).toEqual([]);
+      expect(res.body).toEqual({
+        pagesCount: 0,
+        page: 1,
+        pageSize: 10,
+        totalCount: 0,
+        items: [],
+      });
+    });
+
+    it('should respect pageNumber and pageSize', async () => {
+      const blog = await createBlog();
+      await createPost({
+        title: 'Post 1',
+        shortDescription: 'Short desc',
+        content: 'Content',
+        blogId: blog.body.id,
+      });
+      await createPost({
+        title: 'Post 2',
+        shortDescription: 'Short desc',
+        content: 'Content',
+        blogId: blog.body.id,
+      });
+
+      const res = await request(app)
+        .get(POSTS_BASE)
+        .query({ pageNumber: 1, pageSize: 1 })
+        .expect(HttpStatus.Ok);
+
+      expect(res.body.totalCount).toBe(2);
+      expect(res.body.pagesCount).toBe(2);
+      expect(res.body.items).toHaveLength(1);
     });
   });
 
@@ -97,7 +128,7 @@ describe('Posts API', () => {
           title: 'Post',
           shortDescription: 'Short desc',
           content: 'Content',
-          blogId: 'non-existing-id',
+          blogId: '507f1f77bcf86cd799439011',
         })
         .expect(HttpStatus.BadRequest);
 
@@ -163,7 +194,7 @@ describe('Posts API', () => {
 
     it('should return 404 for non-existing id', async () => {
       await request(app)
-        .get(`${POSTS_BASE}/non-existing-id`)
+        .get(`${POSTS_BASE}/507f1f77bcf86cd799439011`)
         .expect(HttpStatus.NotFound);
     });
   });
@@ -202,7 +233,7 @@ describe('Posts API', () => {
       const blog = await createBlog();
 
       await request(app)
-        .put(`${POSTS_BASE}/non-existing-id`)
+        .put(`${POSTS_BASE}/507f1f77bcf86cd799439011`)
         .set(AUTH)
         .send({
           title: 'Post',
@@ -236,7 +267,7 @@ describe('Posts API', () => {
 
     it('should return 404 for non-existing id', async () => {
       await request(app)
-        .delete(`${POSTS_BASE}/non-existing-id`)
+        .delete(`${POSTS_BASE}/507f1f77bcf86cd799439011`)
         .set(AUTH)
         .expect(HttpStatus.NotFound);
     });

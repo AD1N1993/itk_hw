@@ -4,6 +4,9 @@ import { testingRouter } from './testing/routers/testing.router';
 import { blogsRouter } from './blogs/routers/blogs.router';
 import { postsRouter } from './posts/routers/posts.router';
 import { ensureDbConnected } from './db/mongo.db';
+import { BLOGS_PATH } from './blogs/constants/blogs.paths';
+import { POSTS_PATH } from './posts/constants/posts.paths';
+import { TESTING_PATH } from './testing/constants/testing.paths';
 
 // Гарантирует, что подключение к MongoDB установлено до того, как запрос
 // дойдёт до роутера. В serverless-окружении (Vercel) каждый холодный старт
@@ -30,23 +33,12 @@ export const setupApp = (app: Express) => {
     res.status(200).send('Hello world!');
   });
 
-  // роуты доступны и с префиксом задания, и по «голым» путям —
-  // чтобы тест-раннер попал в цель при любом base URL
   app.use('/hometask_01/api/videos', videoRouter);
   app.use('/hometask_01/api/testing', testingRouter);
-  app.use('/videos', videoRouter);
-  app.use('/testing', testingRouter);
 
-  app.use('/ht_02/api/blogs', blogsRouter);
-  app.use('/ht_02/api/posts', postsRouter);
-  app.use('/ht_02/api/testing', testingRouter);
-
-  app.use('/hometask_03/api/blogs', blogsRouter);
-  app.use('/hometask_03/api/posts', postsRouter);
-  app.use('/hometask_03/api/testing', testingRouter);
-
-  app.use('/blogs', blogsRouter);
-  app.use('/posts', postsRouter);
+  app.use(BLOGS_PATH, blogsRouter);
+  app.use(POSTS_PATH, postsRouter);
+  app.use(TESTING_PATH, testingRouter);
 
   return app;
 };

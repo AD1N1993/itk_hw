@@ -1,98 +1,54 @@
-import { Router, Request, Response } from 'express';
-import { HttpStatus } from '../../core/types/http-statuses';
-import { createErrorMessages } from '../../core/utils/validation-error';
+import { Router } from 'express';
+import { POSTS_ROUTES } from '../constants/posts.paths';
 import { basicAuthMiddleware } from '../../core/middlewares/basic-auth.middleware';
-import { PostInputDto } from '../dto/post.input-dto';
-import { Post } from '../types/post';
-import { validatePostInput } from '../validation/post.validation';
-import { postsRepository } from '../repositories/posts.repository';
-import { blogsRepository } from '../../blogs/repositories/blogs.repository';
-import { mapPostToViewModel } from './mappers/map-post-to-view-model';
+import { idValidation } from '../../core/middlewares/validation/params-id.validation.middleware';
+import { inputValidationResultMiddleware } from '../../core/middlewares/validation/input-validation-result.middleware';
+import { paginationAndSortingValidation } from '../../core/middlewares/validation/query-pagination-sorting.validation.middleware';
+import { postInputValidation } from '../validation/post.validation';
+import { getPostListHandler } from './handlers/get-post-list.handler';
+import { getPostHandler } from './handlers/get-post.handler';
+import { createPostHandler } from './handlers/create-post.handler';
+import { updatePostHandler } from './handlers/update-post.handler';
+import { deletePostHandler } from './handlers/delete-post.handler';
 
 export const postsRouter = Router({});
 
 postsRouter
-  .get('', async (req: Request, res: Response) => {
-    const posts = await postsRepository.findAll();
-    res.status(HttpStatus.Ok).send(posts.map(mapPostToViewModel));
-  })
-  .get('/:id', async (req: Request<{ id: string }>, res: Response) => {
-    const post = await postsRepository.findById(req.params.id);
+  .get(
+    POSTS_ROUTES.ROOT,
+    paginationAndSortingValidation,
+    inputValidationResultMiddleware,
+    getPostListHandler,
+  )
 
-    if (!post) {
-      res.sendStatus(HttpStatus.NotFound);
-      return;
-    }
-    res.status(HttpStatus.Ok).send(mapPostToViewModel(post));
-  })
+  .get(
+    POSTS_ROUTES.BY_ID,
+    idValidation,
+    inputValidationResultMiddleware,
+    getPostHandler,
+  )
+
   .post(
-    '',
+    POSTS_ROUTES.ROOT,
     basicAuthMiddleware,
-    async (req: Request<{}, {}, PostInputDto>, res: Response) => {
-      const errors = await validatePostInput(req.body);
-
-      if (errors.length > 0) {
-        res.status(HttpStatus.BadRequest).send(createErrorMessages(errors));
-        return;
-      }
-
-      const blog = await blogsRepository.findById(req.body.blogId);
-
-      const newPost: Post = {
-        title: req.body.title,
-        shortDescription: req.body.shortDescription,
-        content: req.body.content,
-        blogId: blog!._id.toString(),
-        blogName: blog!.name,
-        createdAt: new Date().toISOString(),
-      };
-
-      const createdPost = await postsRepository.create(newPost);
-      res.status(HttpStatus.Created).send(mapPostToViewModel(createdPost));
-    },
+    postInputValidation,
+    inputValidationResultMiddleware,
+    createPostHandler,
   )
+
   .put(
-    '/:id',
+    POSTS_ROUTES.BY_ID,
     basicAuthMiddleware,
-    async (req: Request<{ id: string }, {}, PostInputDto>, res: Response) => {
-      const post = await postsRepository.findById(req.params.id);
-
-      if (!post) {
-        res.sendStatus(HttpStatus.NotFound);
-        return;
-      }
-
-      const errors = await validatePostInput(req.body);
-
-      if (errors.length > 0) {
-        res.status(HttpStatus.BadRequest).send(createErrorMessages(errors));
-        return;
-      }
-
-      const blog = await blogsRepository.findById(req.body.blogId);
-
-      await postsRepository.update(req.params.id, {
-        title: req.body.title,
-        shortDescription: req.body.shortDescription,
-        content: req.body.content,
-        blogId: blog!._id.toString(),
-        blogName: blog!.name,
-      });
-
-      res.sendStatus(HttpStatus.NoContent);
-    },
+    idValidation,
+    postInputValidation,
+    inputValidationResultMiddleware,
+    updatePostHandler,
   )
+
   .delete(
-    '/:id',
+    POSTS_ROUTES.BY_ID,
     basicAuthMiddleware,
-    async (req: Request<{ id: string }>, res: Response) => {
-      const isDeleted = await postsRepository.delete(req.params.id);
-
-      if (!isDeleted) {
-        res.sendStatus(HttpStatus.NotFound);
-        return;
-      }
-
-      res.sendStatus(HttpStatus.NoContent);
-    },
+    idValidation,
+    inputValidationResultMiddleware,
+    deletePostHandler,
   );
