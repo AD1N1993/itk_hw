@@ -8,9 +8,9 @@ import { stopDb } from '../src/db/mongo.db';
 
 const app = setupApp(express());
 
-const POSTS_BASE = '/hometask_04/api/posts';
-const BLOGS_BASE = '/hometask_04/api/blogs';
-const TESTING = '/hometask_04/api/testing/all-data';
+const POSTS_BASE = '/posts';
+const BLOGS_BASE = '/blogs';
+const TESTING = '/testing/all-data';
 
 const AUTH = {
   Authorization: 'Basic ' + Buffer.from('admin:qwerty').toString('base64'),
